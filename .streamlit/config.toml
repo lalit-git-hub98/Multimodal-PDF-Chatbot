@@ -1,0 +1,7 @@
+[theme]
+base = "dark"
+primaryColor = "#00adb5"       # Customize primary color if needed
+backgroundColor = "#222831"    # Background color for dark mode
+secondaryBackgroundColor = "#393e46" # Sidebar color for dark mode
+textColor = "#eeeeee"          # Text color for dark mode
+font = "sans serif"

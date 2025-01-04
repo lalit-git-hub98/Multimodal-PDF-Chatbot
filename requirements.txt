@@ -1,0 +1,12 @@
+streamlit 
+PyPDF2 
+pdfplumber 
+faiss-cpu 
+sentence-transformers 
+transformers
+langchain
+langchain-community
+openai
+python-dotenv
+tiktoken
+pypdf
