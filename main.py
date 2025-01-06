@@ -1,18 +1,28 @@
 import streamlit as st
 import base64
 import os
+from streamlit_pdf_viewer import pdf_viewer
+
+from utils.extract_pdf import *
+from utils.embed_pdf import *
+from utils.load_model import *
+from utils.embedding import *
+from utils.answer_question import *
 
 try:
     ############################################### Webpage Configuration ##############################################
     st.set_page_config(page_title="RAGent", page_icon=":page_with_curl:", layout="wide")
 
+    load_clip_model()
+    load_clip_embeddings()
+
     main_col1, main_col2 = st.columns([0.5, 0.5])
 
-    ############################################################## Wrapper for Middle Section ###########################################################################################
+    ############################################################## Wrapper for Left Section ###########################################################################################
     with main_col1:
         st.markdown("<h1 style='text-align: center;'>RAGent</h1>", unsafe_allow_html=True)
         st.markdown("<h4 style='text-align: center;'>The Multimodal Retrieval-Augmented Generation assistant you need</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>Upload contract document(s) in PDF format</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'>Upload document(s) in PDF format</p>", unsafe_allow_html=True)
         #######################################################################################################################
 
         ########################################## PDF Upload #####################################################
@@ -29,78 +39,77 @@ try:
         ########################################################################################################
 
         # ############################################### Adding Chunks and Mappings to session state ################################################
-        # # Process each uploaded PDF and add to FAISS index
-        # if "all_chunks" not in st.session_state:
-        #     st.session_state.all_chunks = []  # Store all chunks from all PDFs
+        # Process each uploaded PDF and add to FAISS index
+        if "all_chunks" not in st.session_state:
+            st.session_state.all_chunks = []  # Store all chunks from all PDFs
 
-        # if 'all_file_page_mappings' not in st.session_state:
-        #     st.session_state.all_file_page_mappings = []  # Store file and page mappings for all PDFs
+        if 'all_file_page_mappings' not in st.session_state:
+            st.session_state.all_file_page_mappings = []  # Store file and page mappings for all PDFs
         # ####################################################################################################################
 
-        # if 'files_processed_check' not in st.session_state:
-        #     st.session_state.files_processed_check = False
+        if 'files_processed_check' not in st.session_state:
+            st.session_state.files_processed_check = False
 
-        # if 'file_type_check' not in st.session_state:
-        #     st.session_state.file_type_check = None
+        if 'file_type_check' not in st.session_state:
+            st.session_state.file_type_check = None
 
         # ############################################## Create Embedding from the uploaded PDFs ##########################################
-        # try:
-        #     file_types = ['General', 'Shipping & Logistics', 'RFI/RFP (Bid)', 'Contract']
-        #     selected_file_type = st.selectbox('Select File Type', file_types)
-        #     button_col1, button_col2 = st.columns(2)
-        #     with button_col1:
-        #         if st.button('Process Files'):
-        #             if st.session_state.uploaded_files :
-        #                 for uploaded_file in st.session_state.uploaded_files:
-        #                     with st.spinner(f"Processing {uploaded_file.name}..."):
-        #                         #if 'embed_check' not in st.session_state:
-        #                         chunks, file_page_mapping = embed_pdf(uploaded_file, uploaded_file.name)
-        #                             #st.session_state.embed_check = True
-        #                             #st.session_state.chunks = chunks
-        #                             #st.session_state.file_page_mapping = file_page_mapping
-        #                         st.session_state.chunks = chunks
-        #                         st.session_state.file_page_mapping = file_page_mapping
-        #                         st.session_state.all_chunks.extend(st.session_state.chunks)
-        #                         st.session_state.all_file_page_mappings.extend(st.session_state.file_page_mapping)
-        #                         #st.write(f'Processed file: {uploaded_file.name}')
+        try:
+            button_col1, button_col2 = st.columns(2)
+            with button_col1:
+                if st.button('Process Files'):
+                    if st.session_state.uploaded_files :
+                        for uploaded_file in st.session_state.uploaded_files:
+                            with st.spinner(f"Processing {uploaded_file.name}..."):
+                                #if 'embed_check' not in st.session_state:
+                                text_chunks, image_chunks, file_page_mapping_text, file_page_mapping_image = extract_pdf_data(uploaded_file, uploaded_file.name)
+                                embed_pdf(text_chunks, image_chunks)
+                                st.session_state.all_chunks.extend(text_chunks)
+                                st.session_state.all_file_page_mappings.extend(file_page_mapping_text)
+                                st.session_state.all_chunks.extend(image_chunks)
+                                st.session_state.all_file_page_mappings.extend(file_page_mapping_image)
 
-        #                 st.success("All PDFs have been processed and indexed.")
-        #                 st.session_state.files_processed_check = True
-        #                 #st.write(st.session_state.all_file_page_mappings)
-        # except:
-        #     st.error('Error in creating embeddings.')
+                        st.success("All PDFs have been processed and indexed.")
+                        st.session_state.files_processed_check = True
+                        #st.write(st.session_state.all_file_page_mappings)
+        except:
+            #st.error('Error in creating embeddings.')
+            pass
         #############################################################################################################################
 
-    ################################################################################## Wrapper for Middle Section End ###############################################################
+        try:
+            if st.session_state.files_processed_check:
+                text_question = st.text_area("Enter your question", value = "")
 
-    ################################################################################## Wrapper for Left Section Start ####################################################################
-    # with main_col1:
-    #     try:
-    #         if st.session_state.files_processed_check:
-    #             text_question = st.text_area("Enter your question", value = "")
+                if text_question:
+                    text_question_list = [text_question]
 
-    #             text_question_list = [text_question]
+                    if 'answer_list' not in st.session_state:
+                        st.session_state.answers_list = []
 
-    #             if st.button('Generate Answer') and text_question:
-    #                 answers_list_side, files_pages_list_side = answer_question(text_question_list, st.session_state.all_chunks, st.session_state.all_file_page_mappings)
-    #                 # st.session_state.ans_generated_check = True
-    #                 st.session_state.answers_list_side = answers_list_side
-    #                 st.session_state.files_pages_list_side = files_pages_list_side
-    #             try:
-    #                 st.write("---")
-    #                 st.write("**Answer:**")
-    #                 st.write(st.session_state.answers_list_side[0])
-    #                 st.write("---")
-    #                 st.write("**Reference(s):**")
-    #                 for file_name, page_num in st.session_state.files_pages_list_side[0]:
-    #                         st.write(f"- File: {file_name}, Page: {page_num}")
-    #             except:
-    #                 pass
-                    
-    #                 #st.write(files_pages_list_side)
+                    if 'files_pages_list' not in st.session_state:
+                        st.session_state.files_pages_list = []
+
+                    if st.button('Generate Answer') and text_question:
+                        answers_list, files_pages_list = answer_question(text_question_list, st.session_state.all_chunks, st.session_state.all_file_page_mappings)
+                        # st.session_state.ans_generated_check = True
+                        st.session_state.answers_list = answers_list
+                        st.session_state.files_pages_list = files_pages_list
+                    try:
+                        st.write("---")
+                        st.write("**Answer:**")
+                        st.write(st.session_state.answers_list[0])
+                        st.write("---")
+                        st.write("**Reference(s):**")
+                        for file_name, page_num in st.session_state.files_pages_list[0]:
+                                st.write(f"- File: {file_name}, Page: {page_num}")
+                    except Exception as e:
+                        #st.error(e)
+                        pass
         
-    #     except:
-    #         pass
+        except Exception as e:
+            #st.error(e)
+            pass
 
     ################################################################################## Wrapper for Left Section End ######################################################################
 
@@ -123,17 +132,11 @@ try:
             if selected_file:
                 st.subheader(f"Viewing PDF: {selected_pdf}")
 
-                # Read PDF file
-                pdf_bytes = selected_file.read()
+                binary_data = selected_file.getvalue()
+                pdf_viewer(input=binary_data, width=700)
 
-                # Encode the PDF file in base64 for displaying in iframe
-                pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-
-                # Display the PDF file in an iframe using an HTML embed
-                pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="700" height="1000" type="application/pdf"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
-        except:
-            pass
+        except Exception as e:
+            st.error(e)
 
     ######################################### Making only the second column scrollable ######################################
     css = '''
@@ -153,13 +156,6 @@ try:
     st.markdown(css, unsafe_allow_html=True)
     ######################################### Making only the second column scrollable ######################################
 
-
-    ################################################################################## Wrapper for Right Section End ######################################################################
-
-
-    ########################################################################## Second Wrapper for Middle Section Start #####################################################################
-    
-    ############################################################################## Second Wrapper for Middle Section Start ###############################################################
-
-except:
-    st.error('Some error occurred.')
+except Exception as e:
+    #st.error({e})
+    pass
